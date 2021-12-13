@@ -35,14 +35,20 @@ app = Flask(__name__)
 def home():
     print(" Server accessed the home route")
     return (
-        "Welcome to the Climate App Home Page! <br/>"
+        "<h1> Welcome to the Climate App Home Page! </h1><br/>"
         f"Avalilable Routes: <br/>"
         f"------------------------ <br/>"
-        f"/api/v1.0/precipitation <br/>"
-        f"/api/v1.0/stations <br/>"
-        f"/api/v1.0/tobs <br/>"
-        f"/api/v1.0/<start><br/>"
-        f"/api/v1.0/<start>/<end> <br/>"
+        f"<li>/api/v1.0/precipitation </li>"
+        f"<li>/api/v1.0/stations </li>"
+        f"<li>/api/v1.0/tobs </li><br/>"
+        "------------------------ <br/>"
+        "The following routes are interactive. <br/>"
+        "Replace YYYY-MM-DD with dates between 2010-01-01 and 2017-08-23 <br/>"
+        "When given only a start date, statistics are calculated for all dates greater than or equal to the start date.<br/>"
+        "When given a start and end date, statistics are calculated for dates between the start and end date inclusively. <br/>"
+        "------------------------ <br/>"
+        f"<li>/api/v1.0/YYYY-MM-DD </li>"
+        f"<li>/api/v1.0/YYYY-MM-DD /YYYY-MM-DD </li>"
     )
 # define precipitation route
 @app.route('/api/v1.0/precipitation')
@@ -117,9 +123,62 @@ def tobs():
     #Return a JSON list of temperature observations (TOBS) for the previous year.
     return jsonify(activeStationTemp_list)
     
-# define start/ end routes
+# define <start>  and <start>/ <end> routes
+#Return a JSON list of the minimum temperature, the average temperature, and the max temperature for a given start or start-end range.
 
+#When given the start only, calculate TMIN, TAVG, and TMAX for all dates greater than and equal to the start date.
+@app.route('/api/v1.0/<start>')
+def start(start):
+    print("Server accessed the start date section ")
+    print(start)
 
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    # create variable for start and end dates of data set
+    start_date = session.query(func.min(Measurement.date)).first()[0]
+    end_date = session.query(func.max(Measurement.date)).first()[0]
+
+    # if input date is within data set --> calulate temperatures
+    if start >= start_date and start <= end_date:
+        temp_calculated = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+            filter(Measurement.date >= start).filter(Measurement.date<= end_date).all()[0]
+
+        return(
+            f"Min Temp: {temp_calculated[0]}</br>"
+            f"Avg Temp: {temp_calculated[1]}</br>"
+            f"Max Temp: {temp_calculated[2]}"
+        )
+
+    else: 
+        return (f"Error: The date {start} was not found. Select a date between 2010-01-01 and 2017-08-23 "), 404
+
+#When given the start and the end date, calculate the TMIN, TAVG, and TMAX for dates between the start and end date inclusive.
+@app.route('/api/v1.0/<start>/<end>')
+def start_end(start, end):
+    print("Server accessed the start and end date section ")
+    print(start, end)
+
+    # Create session (link) from Python to the DB
+    session = Session(engine)
+
+    # create variable for start and end dates of data set
+    start_date = session.query(func.min(Measurement.date)).first()[0]
+    end_date = session.query(func.max(Measurement.date)).first()[0]
+
+    # if input date is within data set --> calulate temperatures
+    if start >= start_date and end <= end_date:
+        temp_calculated = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+            filter(Measurement.date >= start).filter(Measurement.date<= end).all()[0]
+
+        return(
+            f"Min Temp: {temp_calculated[0]}</br>"
+            f"Avg Temp: {temp_calculated[1]}</br>"
+            f"Max Temp: {temp_calculated[2]}"
+        )
+
+    else: 
+        return (f"Error: The dates {start}  or {end} were not found. Select a dates between 2010-01-01 and 2017-08-23 "), 404
 
 
 #define the main function
